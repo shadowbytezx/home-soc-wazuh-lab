@@ -56,6 +56,26 @@ sudo useradd testuser
 
 **Observation:** account creation (level 8) was scored more severely by Wazuh than repeated failed logins (level 5) — a reminder that volume of failures doesn't always equal highest risk; a successful privilege-affecting action often outranks it.
 
+## File Integrity Monitoring (Stretch Goal)
+
+Configured real-time FIM on `/root/labtest` and tracked a file's full lifecycle — creation, modification, and deletion.
+
+```bash
+sudo mkdir -p /root/labtest
+sudo bash -c 'echo "sensitive data" > /root/labtest/secret.txt'
+sudo bash -c 'echo "tampered" >> /root/labtest/secret.txt'
+sudo rm /root/labtest/secret.txt
+```
+
+| Action | Alert | Rule ID | Level |
+|---|---|---|---|
+| File created | File added to the system | 554 | 5 |
+| File content changed | Integrity checksum changed | 550 | 7 |
+| File removed | File deleted | 553 | 7 |
+
+**Observation:** FIM modify/delete events (level 7) were scored higher than file creation (level 5) — the same pattern seen earlier, where state-changing actions on existing resources outrank passive creation events.
+
+
 ## Lessons Learned
 
 - Setting up isolated lab networking (NAT Network vs. Host-only vs. Bridged) was the most time-consuming part — more so than installing Wazuh itself.
@@ -65,7 +85,6 @@ sudo useradd testuser
 ## Next Steps
 
 - Add a Windows endpoint with Sysmon for broader detection coverage
-- Enable File Integrity Monitoring (FIM) on sensitive directories
 - Write custom Wazuh rules for lab-specific detections
 - Build a saved Wazuh dashboard with failed-login trends, top source IPs, and severity breakdown
 
