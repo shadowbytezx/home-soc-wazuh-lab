@@ -75,6 +75,32 @@ sudo rm /root/labtest/secret.txt
 
 **Observation:** FIM modify/delete events (level 7) were scored higher than file creation (level 5) — the same pattern seen earlier, where state-changing actions on existing resources outrank passive creation events.
 
+## Custom Wazuh Rule (Stretch Goal)
+
+Created a custom detection rule to escalate severity when SSH brute-force attempts originate specifically from the known attacker VM, rather than relying on the generic rule alone.
+
+**`/var/ossec/etc/rules/local_rules.xml`:**
+```xml
+<group name="local,syslog,sshd,">
+  <rule id="100001" level="12">
+    <if_sid>5710</if_sid>
+    <srcip>10.0.3.4</srcip>
+    <description>CUSTOM: SSH brute-force attempt detected from known attacker VM (10.0.3.4)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>attack,custom_rule,</group>
+  </rule>
+</group>
+```
+
+| Rule | Trigger | Level |
+|---|---|---|
+| 5710 (default) | Any failed login with invalid username | 5 |
+| 100001 (custom) | Failed login with invalid username **from 10.0.3.4 specifically** | 12 |
+
+**Observation:** this demonstrates rule chaining via `if_sid` — building a more specific, higher-priority detection on top of an existing generic one, rather than duplicating logic. In a real environment, `10.0.3.4` would be a known-malicious or watchlisted IP rather than a hardcoded lab address.
+
 
 ## Lessons Learned
 
@@ -85,7 +111,6 @@ sudo rm /root/labtest/secret.txt
 ## Next Steps
 
 - Add a Windows endpoint with Sysmon for broader detection coverage
-- Write custom Wazuh rules for lab-specific detections
 - Build a saved Wazuh dashboard with failed-login trends, top source IPs, and severity breakdown
 
 
