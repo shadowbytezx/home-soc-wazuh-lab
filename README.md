@@ -102,15 +102,40 @@ Created a custom detection rule to escalate severity when SSH brute-force attemp
 **Observation:** this demonstrates rule chaining via `if_sid` — building a more specific, higher-priority detection on top of an existing generic one, rather than duplicating logic. In a real environment, `10.0.3.4` would be a known-malicious or watchlisted IP rather than a hardcoded lab address.
 
 
+
+## Windows Endpoint with Sysmon (Stretch Goal)
+
+Deployed a Windows 11 VM with Sysmon (SwiftOnSecurity config) and the Wazuh agent, extending detection beyond Linux to cover process creation, registry changes, and PowerShell abuse patterns.
+
+**Setup:**
+- Installed Sysmon with the community-maintained SwiftOnSecurity configuration
+- Added the `Microsoft-Windows-Sysmon/Operational` channel to the Wazuh agent's `ossec.conf`
+- Deployed via the Wazuh agent MSI, enrolled to the same `10.0.3.3` manager
+
+| Alert | Rule ID | Level |
+|---|---|---|
+| PowerShell process created an executable file in Windows root folder | 92205 | 9 |
+| PowerShell used to delete files or directories | 92021 | 3 |
+| SecEdit.exe launched from a suspicious location | 92066 | 4 |
+
+### False Positive Triage Example
+
+One alert (rule 92205, level 9, MITRE T1105 "Ingress Tool Transfer") fired when simply opening built-in Windows apps. Investigation of the raw event showed:
+
+- Process: `powershell.exe`
+- Target file: `C:\Windows\SystemTemp\__PSScriptPolicyTest_*.ps1`
+- User: `NT AUTHORITY\SYSTEM`
+
+This matches PowerShell's built-in script policy self-test, a routine internal check PowerShell performs on startup, not malicious activity. The filename pattern (`__PSScriptPolicyTest_`) and `SYSTEM` context are the key indicators used to rule it out.
+
+**Takeaway:** Sysmon + generic rules can't distinguish benign system behavior from malicious staging when the file-write pattern looks identical. This is the kind of alert a SOC analyst would mark as a false positive after checking the process, target path, and executing user, rather than escalating it.
+
+**Observation:** even routine Windows background activity (opening built-in apps) triggered PowerShell- and SecEdit-related alerts. This highlights a real SOC challenge: Sysmon-based detections are high-fidelity but require tuning and baselining to separate normal system behavior from genuine threats — not every alert means compromise.
+
 ## Lessons Learned
 
 - Setting up isolated lab networking (NAT Network vs. Host-only vs. Bridged) was the most time-consuming part — more so than installing Wazuh itself.
 - Local events (like `useradd`) don't carry a `data.srcip` field, since there's no network connection involved — only network-originated events like SSH attempts do.
 - Wazuh's default rule set already maps common Linux auth events to MITRE ATT&CK technique categories (Brute Force, Password Guessing) without any manual rule-writing.
-
-## Next Steps
-
-- Add a Windows endpoint with Sysmon for broader detection coverage
-- Build a saved Wazuh dashboard with failed-login trends, top source IPs, and severity breakdown
 
 
