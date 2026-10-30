@@ -134,8 +134,26 @@ This matches PowerShell's built-in script policy self-test, a routine internal c
 
 ## Lessons Learned
 
-- Setting up isolated lab networking (NAT Network vs. Host-only vs. Bridged) was the most time-consuming part — more so than installing Wazuh itself.
+#Infrastructure & networking
+- Setting up isolated lab networking (NAT Network vs. Host-only vs. Bridged) was the most time-consuming part of the whole project — more so than installing Wazuh itself. The host-only networking driver being unavailable forced a pivot to NAT Network, which turned out to work just as well.
+- VirtualBox locks network adapter settings while a VM is running — most "invalid settings" or greyed-out field issues during setup were solved by a full power-off, not a reboot inside the guest OS.
+- `ping` round-trip time is a reliable way to tell whether two VMs are actually talking over the network or whether you're accidentally pinging the same machine (sub-0.1ms = self-ping, ~0.3–3ms = real cross-VM traffic).
+
+#Detection fundamentals
 - Local events (like `useradd`) don't carry a `data.srcip` field, since there's no network connection involved — only network-originated events like SSH attempts do.
-- Wazuh's default rule set already maps common Linux auth events to MITRE ATT&CK technique categories (Brute Force, Password Guessing) without any manual rule-writing.
+- Severity level isn't just about volume. A single `useradd` (level 8) or a single modified/deleted file under FIM (level 7) outranked dozens of repeated failed SSH logins (level 5). State-changing actions on existing resources are scored higher than passive creation or repeated failed attempts.
+- Wazuh's default rule set already maps common Linux auth events to MITRE ATT&CK technique categories (Brute Force, Password Guessing) without any manual rule-writing — the mapping comes out of the box.
+
+#Rule tuning
+- Writing a custom rule (`if_sid` + `srcip`) showed how real detection engineering works: rather than duplicating logic, you chain a new rule on top of an existing one to add context (a known-bad source) and escalate severity accordingly.
+- Custom rules only take effect after `systemctl restart wazuh-manager` — editing `local_rules.xml` alone does nothing until the manager reloads.
+
+#Sysmon and false positives
+- A strict Sysmon config (SwiftOnSecurity) generates high-fidelity alerts, but also flags entirely benign system behavior — opening Notepad and Calculator triggered PowerShell- and SecEdit-related alerts from Windows' own background processes.
+- Triage, not just detection, is the real skill: tracing an alert back to its process, target file path, and executing user (`NT AUTHORITY\SYSTEM` in this case) was what separated "looks like malware staging" from "this is PowerShell's routine self-test."
+- Sysmon doesn't log to a channel Wazuh monitors by default — `Microsoft-Windows-Sysmon/Operational` has to be added explicitly to `ossec.conf`, unlike System/Application/Security which are monitored out of the box.
+
+#General
+- Alert count and severity aren't correlated 1:1 with real risk — a 38-alert brute-force spike mattered less in isolation than a single high-severity account-creation event. Context (source, target, user) is what turns raw alerts into an actual investigation.
 
 
