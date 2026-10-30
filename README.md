@@ -56,15 +56,6 @@ sudo useradd testuser
 
 **Observation:** account creation (level 8) was scored more severely by Wazuh than repeated failed logins (level 5) — a reminder that volume of failures doesn't always equal highest risk; a successful privilege-affecting action often outranks it.
 
-## Screenshots
-
-*(add these below — drag and drop into the GitHub editor)*
-
-- Threat Hunting dashboard overview (alert counts, MITRE ATT&CK breakdown)
-- Expanded SSH brute-force alert detail
-- Expanded "new user added" alert detail
-- Network diagram / VM settings
-
 ## Lessons Learned
 
 - Setting up isolated lab networking (NAT Network vs. Host-only vs. Bridged) was the most time-consuming part — more so than installing Wazuh itself.
